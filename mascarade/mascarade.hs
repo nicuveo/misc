@@ -1,71 +1,58 @@
-# imports
+-- imports
 
-import qualified Data.List as L
-import qualified Data.Map as M
-import Data.Ratio
-
-
-
-# types
-
-data Card = King | Queen | Fool deriving (Eq, Ord, Show, Enum, Bounded)
-type Hand = M.Map Card Rational
+import qualified Data.Sequence as S
+import qualified Data.Foldable as F
+import qualified Data.Tree as T
+import Control.Applicative
+import Control.Monad
+import Data.Maybe
 
 
 
-# functions
+-- types
 
-allCards :: [Card]
+data Card = King | Queen | Fool | Thief | Bishop deriving (Eq, Ord, Show, Enum, Bounded)
+type Distribution = [Card]
+type Game = T.Tree Distribution
+
+
+
+-- functions
+
+swapList :: (Int, Int) -> [a] -> [a]
+swapList c@(p1, p2) list = F.toList $ S.update p1 v2 $ S.update p2 v1 $ S.fromList list
+  where v1 = list !! p1
+        v2 = list !! p2
+
+isLeaf :: Game -> Bool
+isLeaf = null . T.subForest
+
+allCards :: Distribution
 allCards = [minBound..]
 
-startingHand :: Card -> Hand
-startingHand card = M.fromList $ map cardProba allCards
-  where
-    cardProba c
-      | card == c = (c, 1)
-      | otherwise = (c, 0)
+startGame :: Distribution -> Game
+startGame d = T.Node d []
 
-swapHands :: Hand -> Hand -> Hand
-swapHands = M.unionWith mean
-  where
-    mean p1 p2 = (p1 + p2) / 2
+swap :: (Int, Int) -> Game -> Game
+swap c@(p1, p2) game@(T.Node dist subf)
+  | isLeaf game = game { T.subForest = [game, game { T.rootLabel = swapList c dist } ] }
+  | otherwise   = game { T.subForest = map (swap c) subf }
 
-revealAs :: Card -> Hand -> Hand
-revealAs c _ = startingHand c
+reveal :: (Int, Card) -> Game -> Game
+reveal c = fromJust . reveal' c
 
-revealAsNot :: Card -> Hand -> Hand
-revealAsNot c = norm . clean
-  where
-    norm  h = M.map (/ (total h)) h
-    clean h = M.alter zero c h
-    total h = M.foldl (+) 0 h
-    zero    = \_ -> Just 0
-
-swap :: (Int, Int) -> [Hand] -> [Hand]
-swap (p1, p2) hands = map alter $ zip [0..] hands
-  where
-    nh = swapHands (hands !! p1) (hands !! p2)
-    alter (i, h)
-      | i `elem` [p1, p2] = nh
-      | otherwise         = h
-
-reveal :: (Int, Card) -> [Hand] -> [Hand]
-reveal (index, card) = map alter . zip [0..]
-  where
-    alter (i, h)
-      | i == index = revealAs card h
-      | otherwise  = revealAsNot card h
+reveal' :: (Int, Card) -> Game -> Maybe Game
+reveal' c@(p, v) game@(T.Node dist subf)
+  | isLeaf game = (if dist !! p == v then Just game else Nothing)
+  | otherwise   = (if null nsubf then Nothing else Just game { T.subForest = nsubf })
+  where nsubf = catMaybes $ map (reveal' c) subf
 
 
 
-# test
+-- test
 
 main = do
-  let pShow p = (show $ fst p) ++ ": " ++ (show $ snd p)
-  let hShow h = "(" ++ (concat $ L.intersperse ", " $ map pShow $ M.toAscList h) ++ ")"
-  let hands = map startingHand allCards
-  let print = putStrLn . hShow
-  let prints = sequence . map print
-  let game = reveal (0, Fool) . swap (0, 1) . swap (0, 2) . swap (1, 2) . swap (0, 2)
-
-  prints $ game hands
+  let p = putStrLn . T.drawTree . fmap show
+  let g = swap (0, 1) $ swap (0, 2) $ startGame allCards
+  p g
+  p $ reveal (1, Fool) g
