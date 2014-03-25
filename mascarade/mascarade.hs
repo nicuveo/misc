@@ -41,18 +41,18 @@ mapForestLeaves func = map (mapTreeLeaves func)
 pruneTreeLeaves :: (a -> Bool) -> T.Tree a -> Maybe (T.Tree a)
 pruneTreeLeaves func tree@(T.Node val subs)
   | isLeaf tree = if func val then Nothing else Just tree
-  | otherwise = (if null nsubs then Nothing else Just tree { T.subForest = nsubs })
+  | otherwise = if null nsubs then Nothing else Just tree { T.subForest = nsubs }
   where nsubs = pruneForestLeaves func subs
 
 pruneForestLeaves :: (a -> Bool) -> T.Forest a -> T.Forest a
-pruneForestLeaves f = catMaybes . map (pruneTreeLeaves f)
+pruneForestLeaves f = mapMaybe (pruneTreeLeaves f)
 
 
 
 -- cards functions
 
 swapCards :: (Int, Int) -> Distribution -> Distribution
-swapCards (p1, p2) dist = S.update p1 v2 $ S.update p2 v1 $ dist
+swapCards (p1, p2) dist = S.update p1 v2 $ S.update p2 v1 dist
   where v1 = S.index dist p1
         v2 = S.index dist p2
 
@@ -70,11 +70,11 @@ swap :: (Int, Int) -> Game -> Game
 swap cs = mapTreeLeaves (\d -> T.Node d [makeGame d, makeGame $ swapCards cs d])
 
 reveal :: (Int, Card) -> Game -> Game
-reveal (i, c) = fromJust . pruneTreeLeaves (\d -> (S.index d i) /= c)
+reveal (i, c) = fromJust . pruneTreeLeaves (\d -> S.index d i /= c)
 
 probability :: Int -> Game -> ProbableCard
-probability i g = foldr (\c ->M.insertWith (+) c (1 % nc)) M.empty cs
-  where cs = map (\s -> S.index s i) $ leaves g
+probability i g = foldr (\c -> M.insertWith (+) c (1 % nc)) M.empty cs
+  where cs = map (`S.index` i) $ leaves g
         nc = length cs
 
 
@@ -84,8 +84,8 @@ probability i g = foldr (\c ->M.insertWith (+) c (1 % nc)) M.empty cs
 main = do
   let p = putStrLn . T.drawTree . fmap show
   let g0 = makeGame allCards
-  let g1 = reveal (1, Fool) $ swap (0, 1) $ swap (0, 2) $ swap (2, 3) $ swap (4, 0) $ g0
-  let g2 = swap (1, 3) $ swap (4, 2) $ g1
-  p $ g1
-  p $ g2
-  putStrLn $ unlines $ map (show . (\i -> probability i g2)) [0..4]
+  let g1 = reveal (1, Fool) $ swap (0, 1) $ swap (0, 2) $ swap (2, 3) $ swap (4, 0) g0
+  let g2 = swap (1, 3) $ swap (4, 2) g1
+  p g1
+  p g2
+  putStrLn $ unlines $ map (show . (`probability` g2)) [0..4]
