@@ -1,0 +1,28 @@
+## configure.in
+## Made by nicuveo for .
+
+
+
+## Configuration
+profile: release
+
+
+## Defaults
+CC	= g++
+CFLAGS	= -W -Wall -Wextra
+DFLAGS  = -D_GLIBCXX_DEBUG
+LDFLAGS =
+
+
+## Debug
+[debug]
+	CFLAGS  += $(DFLAGS) -g -pg
+	LDFLAGS += -pg
+
+## Check
+[check]
+	CFLAGS  += $(DFLAGS) -Werror
+
+## Release
+[release]
+	CFLAGS += -DNDEBUG -O3

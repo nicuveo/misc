@@ -1,0 +1,8 @@
+## configure.in
+## Made by nicuveo for owl
+
+CFIL = ../src/main.cc		\
+       ../src/grid.cc		\
+       ../src/solver.cc		\
+       ../src/line_solver.cc
+TARGET = $(LIBA) $(EXE)
